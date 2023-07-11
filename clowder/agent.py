@@ -3,18 +3,18 @@
 import math
 from typing import List, Optional, Sequence
 
-from clowder.learner import Learner
-from clowder.actor import Actor
-from clowder.iterator import PrefetchingIterator
-from clowder.variable import VariableSource
-from clowder import specs
 import dm_env
 import numpy as np
 import reverb
 
+from clowder import specs
+from clowder.actor import Actor
+from clowder.iterator import PrefetchingIterator
+from clowder.learner import Learner
+from clowder.variable import VariableSource
 
-def _calculate_num_learner_steps(num_observations: int, min_observations: int,
-                                 observations_per_step: float) -> int:
+
+def _calculate_num_learner_steps(num_observations: int, min_observations: int, observations_per_step: float) -> int:
     """Calculates the number of learner steps to do at step=num_observations."""
     n = num_observations - min_observations
     if n < 0:
@@ -31,27 +31,29 @@ def _calculate_num_learner_steps(num_observations: int, min_observations: int,
 class Agent(Actor, VariableSource):
     """Agent class which combines acting and learning.
 
-  This provides an implementation of the `Actor` interface which acts and
-  learns. It takes as input instances of both `Actor` and `Learner`
-  classes, and implements the policy, observation, and update methods which
-  defer to the underlying actor and learner.
+    This provides an implementation of the `Actor` interface which acts and
+    learns. It takes as input instances of both `Actor` and `Learner`
+    classes, and implements the policy, observation, and update methods which
+    defer to the underlying actor and learner.
 
-  The only real logic implemented by this class is that it controls the number
-  of observations to make before running a learner step. This is done by
-  passing the number of `min_observations` to use and a ratio of
-  `observations_per_step` := num_actor_actions / num_learner_steps.
+    The only real logic implemented by this class is that it controls the number
+    of observations to make before running a learner step. This is done by
+    passing the number of `min_observations` to use and a ratio of
+    `observations_per_step` := num_actor_actions / num_learner_steps.
 
-  Note that the number of `observations_per_step` can also be in the range[0, 1]
-  in order to allow the agent to take more than 1 learner step per action.
-  """
+    Note that the number of `observations_per_step` can also be in the range[0, 1]
+    in order to allow the agent to take more than 1 learner step per action.
+    """
 
-    def __init__(self,
-                 actor: Actor,
-                 learner: Learner,
-                 min_observations: Optional[int] = None,
-                 observations_per_step: Optional[float] = None,
-                 iterator: Optional[PrefetchingIterator] = None,
-                 replay_tables: Optional[List[reverb.Table]] = None):
+    def __init__(
+        self,
+        actor: Actor,
+        learner: Learner,
+        min_observations: Optional[int] = None,
+        observations_per_step: Optional[float] = None,
+        iterator: Optional[PrefetchingIterator] = None,
+        replay_tables: Optional[List[reverb.Table]] = None,
+    ):
         self._actor = actor
         self._learner = learner
         self._min_observations = min_observations
@@ -59,26 +61,22 @@ class Agent(Actor, VariableSource):
         self._num_observations = 0
         self._iterator = iterator
         self._replay_tables = replay_tables
-        self._batch_size_upper_bounds = [1_000_000_000] * len(
-            replay_tables) if replay_tables else None
+        self._batch_size_upper_bounds = [1_000_000_000] * len(replay_tables) if replay_tables else None
 
-    def select_action(self,
-                      observation: specs.NestedArray) -> specs.NestedArray:
+    def select_action(self, observation: specs.NestedArray) -> specs.NestedArray:
         return self._actor.select_action(observation)
 
     def observe_first(self, timestep: dm_env.TimeStep):
         self._actor.observe_first(timestep)
 
-    def observe(self, action: specs.NestedArray,
-                next_timestep: dm_env.TimeStep):
+    def observe(self, action: specs.NestedArray, next_timestep: dm_env.TimeStep):
         self._num_observations += 1
         self._actor.observe(action, next_timestep)
 
     def _has_data_for_training(self):
         if self._iterator.ready():
             return True
-        for (table, batch_size) in zip(self._replay_tables,
-                                       self._batch_size_upper_bounds):
+        for table, batch_size in zip(self._replay_tables, self._batch_size_upper_bounds):
             if not table.can_sample(batch_size):
                 return False
         return True
@@ -91,19 +89,19 @@ class Agent(Actor, VariableSource):
                 # Run learner steps (usually means gradient steps).
                 total_batches = self._iterator.retrieved_elements()
                 self._learner.step()
-                current_batches = self._iterator.retrieved_elements(
-                ) - total_batches
+                current_batches = self._iterator.retrieved_elements() - total_batches
                 assert current_batches == 1, (
-                    'Learner step must retrieve exactly one element from the iterator'
-                    f' (retrieved {current_batches}). Otherwise agent can deadlock. '
-                    'Example cause is that your chosen agent'
-                    's Builder has a '
-                    '`make_learner` factory that prefetches the data but it '
-                    'shouldn'
-                    't.')
+                    "Learner step must retrieve exactly one element from the iterator"
+                    f" (retrieved {current_batches}). Otherwise agent can deadlock. "
+                    "Example cause is that your chosen agent"
+                    "s Builder has a "
+                    "`make_learner` factory that prefetches the data but it "
+                    "shouldn"
+                    "t."
+                )
                 self._batch_size_upper_bounds = [
-                    math.ceil(t.info.rate_limiter_info.sample_stats.completed /
-                              (total_batches + 1)) for t in self._replay_tables
+                    math.ceil(t.info.rate_limiter_info.sample_stats.completed / (total_batches + 1))
+                    for t in self._replay_tables
                 ]
                 update_actor = True
             if update_actor:
