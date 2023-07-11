@@ -2,12 +2,12 @@
 
 import copy
 import pickle
-
 from test import mocks
+
 from clowder.wrappers import base
 
-class TestBaseWrapper:
 
+class TestBaseWrapper:
     def test_pickle_unpickle(self):
         test_env = base.EnvironmentWrapper(environment=mocks.MockDiscreteEnvironment())
 

@@ -164,7 +164,6 @@ class Observer:
         next_done = torch.zeros(args.num_envs).to(device)
 
         for step in range(0, num_steps):
-
             # send the state to the agent to get an action
             action = _remote_method(Agent.report_and_select_action, agent_rref, self.id, step, next_obs, next_done)
 

@@ -38,9 +38,7 @@ def to_torch(
     device: Union[str, int, torch.device] = "cpu",
 ) -> Union[Batch, torch.Tensor]:
     """Return an object without np.ndarray."""
-    if isinstance(x, np.ndarray) and issubclass(
-        x.dtype.type, (np.bool_, np.number)
-    ):  # most often case
+    if isinstance(x, np.ndarray) and issubclass(x.dtype.type, (np.bool_, np.number)):  # most often case
         x = torch.from_numpy(x).to(device)
         if dtype is not None:
             x = x.type(dtype)
@@ -73,20 +71,15 @@ def to_torch_as(x: Any, y: torch.Tensor) -> Union[Batch, torch.Tensor]:
 
 # Note: object is used as a proxy for objects that can be pickled
 # Note: mypy does not support cyclic definition currently
-Hdf5ConvertibleValues = Union[int, float, Batch, np.ndarray, torch.Tensor, object,
-                              "Hdf5ConvertibleType"]
+Hdf5ConvertibleValues = Union[int, float, Batch, np.ndarray, torch.Tensor, object, "Hdf5ConvertibleType"]
 
 Hdf5ConvertibleType = Dict[str, Hdf5ConvertibleValues]
 
 
-def to_hdf5(
-    x: Hdf5ConvertibleType, y: h5py.Group, compression: Optional[str] = None
-) -> None:
+def to_hdf5(x: Hdf5ConvertibleType, y: h5py.Group, compression: Optional[str] = None) -> None:
     """Copy object into HDF5 group."""
 
-    def to_hdf5_via_pickle(
-        x: object, y: h5py.Group, key: str, compression: Optional[str] = None
-    ) -> None:
+    def to_hdf5_via_pickle(x: object, y: h5py.Group, key: str, compression: Optional[str] = None) -> None:
         """Pickle, convert to numpy array and write to HDF5 dataset."""
         data = np.frombuffer(pickle.dumps(x), dtype=np.byte)
         y.create_dataset(key, data=data, compression=compression)
@@ -118,8 +111,7 @@ def to_hdf5(
                     to_hdf5_via_pickle(v, y, k, compression=compression)
                 except Exception as exception:
                     raise RuntimeError(
-                        f"Attempted to pickle {v.__class__.__name__} due to "
-                        "data type not supported by HDF5 and failed."
+                        f"Attempted to pickle {v.__class__.__name__} due to " "data type not supported by HDF5 and failed."
                     ) from exception
                 y[k].attrs["__data_type__"] = "pickled_ndarray"
         elif isinstance(v, (int, float)):
@@ -130,8 +122,7 @@ def to_hdf5(
                 to_hdf5_via_pickle(v, y, k, compression=compression)
             except Exception as exception:
                 raise NotImplementedError(
-                    f"No conversion to HDF5 for object of type '{type(v)}' "
-                    "implemented and fallback to pickle failed."
+                    f"No conversion to HDF5 for object of type '{type(v)}' " "implemented and fallback to pickle failed."
                 ) from exception
             y[k].attrs["__data_type__"] = v.__class__.__name__
 
