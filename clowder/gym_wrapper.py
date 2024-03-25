@@ -15,14 +15,18 @@
 
 from typing import Any, Dict, List, Optional
 
-from dm_env import specs
 import dm_env
 import gymnasium as gym
-from gymnasium import spaces
 import numpy as np
 import tree
+from dm_env import specs
+from gymnasium import spaces
 
-from clowder.specs import NestedSpec, NestedArray, EnvironmentSpec, make_environment_spec
+from clowder.specs import (
+    NestedArray,
+    NestedSpec,
+)
+
 
 class GymWrapper(dm_env.Environment):
     """Environment wrapper for OpenAI Gym environments."""
@@ -39,8 +43,8 @@ class GymWrapper(dm_env.Environment):
         # Convert action and observation specs.
         obs_space = self._environment.observation_space
         act_space = self._environment.action_space
-        self._observation_spec = _convert_to_spec(obs_space, name='observation')
-        self._action_spec = _convert_to_spec(act_space, name='action')
+        self._observation_spec = _convert_to_spec(obs_space, name="observation")
+        self._action_spec = _convert_to_spec(act_space, name="action")
 
     def reset(self) -> dm_env.TimeStep:
         """Resets the episode."""
@@ -63,10 +67,11 @@ class GymWrapper(dm_env.Environment):
         # array property.
         reward = tree.map_structure(
             lambda x, t: (  # pylint: disable=g-long-lambda
-                t.dtype.type(x)
-                if np.isscalar(x) else np.asarray(x, dtype=t.dtype)),
+                t.dtype.type(x) if np.isscalar(x) else np.asarray(x, dtype=t.dtype)
+            ),
             reward,
-            self.reward_spec())
+            self.reward_spec(),
+        )
 
         if truncated:
             return dm_env.truncation(reward, observation)
@@ -83,9 +88,9 @@ class GymWrapper(dm_env.Environment):
     def get_info(self) -> Optional[Dict[str, Any]]:
         """Returns the last info returned from env.step(action).
 
-    Returns:
-      info: dictionary of diagnostic information from the last environment step
-    """
+        Returns:
+          info: dictionary of diagnostic information from the last environment step
+        """
         return self._last_info
 
     @property
@@ -94,81 +99,63 @@ class GymWrapper(dm_env.Environment):
         return self._environment
 
     def __getattr__(self, name: str):
-        if name.startswith('__'):
-            raise AttributeError(
-                "attempted to get missing private attribute '{}'".format(name))
+        if name.startswith("__"):
+            raise AttributeError(f"attempted to get missing private attribute '{name}'")
         return getattr(self._environment, name)
 
     def close(self):
         self._environment.close()
 
 
-def _convert_to_spec(space: gym.Space,
-                     name: Optional[str] = None) -> NestedSpec:
+def _convert_to_spec(space: gym.Space, name: Optional[str] = None) -> NestedSpec:
     """Converts an OpenAI Gym space to a dm_env spec or nested structure of specs.
 
-  Box, MultiBinary and MultiDiscrete Gym spaces are converted to BoundedArray
-  specs. Discrete OpenAI spaces are converted to DiscreteArray specs. Tuple and
-  Dict spaces are recursively converted to tuples and dictionaries of specs.
+    Box, MultiBinary and MultiDiscrete Gym spaces are converted to BoundedArray
+    specs. Discrete OpenAI spaces are converted to DiscreteArray specs. Tuple and
+    Dict spaces are recursively converted to tuples and dictionaries of specs.
 
-  Args:
-    space: The Gym space to convert.
-    name: Optional name to apply to all return spec(s).
+    Args:
+      space: The Gym space to convert.
+      name: Optional name to apply to all return spec(s).
 
-  Returns:
-    A dm_env spec or nested structure of specs, corresponding to the input
-    space.
-  """
+    Returns:
+      A dm_env spec or nested structure of specs, corresponding to the input
+      space.
+    """
     if isinstance(space, spaces.Discrete):
-        return specs.DiscreteArray(num_values=space.n,
-                                   dtype=space.dtype,
-                                   name=name)
+        return specs.DiscreteArray(num_values=space.n, dtype=space.dtype, name=name)
 
     elif isinstance(space, spaces.Box):
-        return specs.BoundedArray(shape=space.shape,
-                                  dtype=space.dtype,
-                                  minimum=space.low,
-                                  maximum=space.high,
-                                  name=name)
+        return specs.BoundedArray(shape=space.shape, dtype=space.dtype, minimum=space.low, maximum=space.high, name=name)
 
     elif isinstance(space, spaces.MultiBinary):
-        return specs.BoundedArray(shape=space.shape,
-                                  dtype=space.dtype,
-                                  minimum=0.0,
-                                  maximum=1.0,
-                                  name=name)
+        return specs.BoundedArray(shape=space.shape, dtype=space.dtype, minimum=0.0, maximum=1.0, name=name)
 
     elif isinstance(space, spaces.MultiDiscrete):
-        return specs.BoundedArray(shape=space.shape,
-                                  dtype=space.dtype,
-                                  minimum=np.zeros(space.shape),
-                                  maximum=space.nvec - 1,
-                                  name=name)
+        return specs.BoundedArray(
+            shape=space.shape, dtype=space.dtype, minimum=np.zeros(space.shape), maximum=space.nvec - 1, name=name
+        )
 
     elif isinstance(space, spaces.Tuple):
         return tuple(_convert_to_spec(s, name) for s in space.spaces)
 
     elif isinstance(space, spaces.Dict):
-        return {
-            key: _convert_to_spec(value, key)
-            for key, value in space.spaces.items()
-        }
+        return {key: _convert_to_spec(value, key) for key, value in space.spaces.items()}
 
     else:
-        raise ValueError('Unexpected gym space: {}'.format(space))
+        raise ValueError(f"Unexpected gym space: {space}")
 
 
 class GymAtariAdapter(GymWrapper):
     """Specialized wrapper exposing a Gym Atari environment.
 
-  This wraps the Gym Atari environment in the same way as GymWrapper, but also
-  exposes the lives count as an observation. The resuling observations are
-  a tuple whose first element is the RGB observations and the second is the
-  lives count.
-  """
+    This wraps the Gym Atari environment in the same way as GymWrapper, but also
+    exposes the lives count as an observation. The resuling observations are
+    a tuple whose first element is the RGB observations and the second is the
+    lives count.
+    """
 
-    def _wrap_observation(self,
-                          observation: NestedSpec) -> NestedSpec:
+    def _wrap_observation(self, observation: NestedSpec) -> NestedSpec:
         # pytype: disable=attribute-error
         return observation, self._environment.ale.lives()
         # pytype: enable=attribute-error
@@ -195,8 +182,7 @@ class GymAtariAdapter(GymWrapper):
         return dm_env.transition(reward, observation)
 
     def observation_spec(self) -> NestedSpec:
-        return (self._observation_spec,
-                specs.Array(shape=(), dtype=np.dtype('float64'), name='lives'))
+        return (self._observation_spec, specs.Array(shape=(), dtype=np.dtype("float64"), name="lives"))
 
     def action_spec(self) -> List[specs.BoundedArray]:
         return [self._action_spec]  # pytype: disable=bad-return-type

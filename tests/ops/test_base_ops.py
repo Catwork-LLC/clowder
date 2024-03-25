@@ -1,5 +1,6 @@
 from clowder.ops import base_ops
 
+
 class TestDimension:
     def test_dimension(self):
         dim = base_ops.Dimension(12)

@@ -2,33 +2,47 @@
 
 import abc
 import time
-from typing import Callable, Iterable, Mapping, NamedTuple, Optional, Sized, Union, Tuple
+from typing import (
+    Callable,
+    Iterable,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Sized,
+    Tuple,
+    Union,
+)
 
-from absl import logging
-from clowder import specs
-from clowder.adders import base
 import dm_env
-from dm_env.specs import Array
 import numpy as np
 import reverb
 import tensorflow as tf
 import tree
+from absl import logging
+from dm_env.specs import Array
 
-DEFAULT_PRIORITY_TABLE = 'priority_table'
+from clowder import specs
+from clowder.adders import base
+
+DEFAULT_PRIORITY_TABLE = "priority_table"
 _MIN_WRITER_LIFESPAN_SECONDS = 60
 StartOfEpisodeType = Union[bool, Array, tf.Tensor, tf.TensorSpec, Tuple[()]]
 
+
 class Step(NamedTuple):
     """Trajectory class used internally for reverb adders."""
+
     observation: specs.NestedArray
     action: specs.NestedArray
     reward: specs.NestedArray
     discount: specs.NestedArray
     start_of_episode: StartOfEpisodeType
     extras: specs.NestedArray = ()
-    
+
+
 class Trajectory(NamedTuple):
     """Trajectory class used internally for reverb adders."""
+
     observation: specs.NestedArray
     action: specs.NestedArray
     reward: specs.NestedArray
@@ -39,6 +53,7 @@ class Trajectory(NamedTuple):
 
 class PriorityFnInput(NamedTuple):
     """The input to a priority function consisting of stacked steps."""
+
     observations: specs.NestedArray
     actions: specs.NestedArray
     rewards: specs.NestedArray
@@ -48,12 +63,12 @@ class PriorityFnInput(NamedTuple):
 
 
 # Define the type of a priority function and the mapping from table to function.
-PriorityFn = Callable[['PriorityFnInput'], float]
+PriorityFn = Callable[["PriorityFnInput"], float]
 PriorityFnMapping = Mapping[str, Optional[PriorityFn]]
 
 
 def spec_like_to_tensor_spec(paths: Iterable[str], spec: Array):
-    return tf.TensorSpec.from_spec(spec, name='/'.join(str(p) for p in paths))
+    return tf.TensorSpec.from_spec(spec, name="/".join(str(p) for p in paths))
 
 
 class ReverbAdder(base.Adder):
@@ -84,7 +99,7 @@ class ReverbAdder(base.Adder):
                 (1.0) and placed in DEFAULT_PRIORITY_TABLE.
             validate_items: Whether to validate items against the table signature
                 before they are sent to the server. This requires table signature to be
-                fetched from the server and cached locally. 
+                fetched from the server and cached locally.
         """
         if priority_fns:
             priority_fns = dict(priority_fns)
@@ -116,9 +131,10 @@ class ReverbAdder(base.Adder):
                 self.__writer.flush(0, timeout_ms=timeout_ms)
             except reverb.DeadlineExceededError as e:
                 logging.error(
-                    'Timeout (%d ms) exceeded when flushing the writer before '
-                    'deleting it. Caught Reverb exception: %s', timeout_ms,
-                    str(e))
+                    "Timeout (%d ms) exceeded when flushing the writer before " "deleting it. Caught Reverb exception: %s",
+                    timeout_ms,
+                    str(e),
+                )
             self.__writer.close()
             self.__writer = None
 
@@ -126,16 +142,17 @@ class ReverbAdder(base.Adder):
     def _writer(self) -> reverb.TrajectoryWriter:
         if self.__writer is None:
             self.__writer = self._client.trajectory_writer(
-                num_keep_alive_refs=self._max_sequence_length,
-                validate_items=self._validate_items)
+                num_keep_alive_refs=self._max_sequence_length, validate_items=self._validate_items
+            )
             self._writer_created_timestamp = time.time()
         return self.__writer
 
     def add_priority_table(self, table_name: str, priority_fn: Optional[PriorityFn]):
         if table_name in self._priority_fns:
             raise ValueError(
-                f'A priority function already exists for {table_name}. '
-                f'Existing tables: {", ".join(self._priority_fns.keys())}.')
+                f"A priority function already exists for {table_name}. "
+                f'Existing tables: {", ".join(self._priority_fns.keys())}.'
+            )
         self._priority_fns[table_name] = priority_fn
 
     def reset(self, timeout_ms: Optional[int] = None):
@@ -146,54 +163,44 @@ class ReverbAdder(base.Adder):
 
             # Create a new writer unless the current one is too young.
             # This is to reduce the relative overhead of creating a new Reverb writer.
-            if (time.time() - self._writer_created_timestamp
-                    > _MIN_WRITER_LIFESPAN_SECONDS):
+            if time.time() - self._writer_created_timestamp > _MIN_WRITER_LIFESPAN_SECONDS:
                 self.__writer = None
         self._add_first_called = False
 
     def add_first(self, timestep: dm_env.TimeStep):
         """Record the first observation of a trajectory."""
         if not timestep.first():
-            raise ValueError(
-                'adder.add_first with an initial timestep (i.e. one for '
-                'which timestep.first() is True')
+            raise ValueError("adder.add_first with an initial timestep (i.e. one for " "which timestep.first() is True")
 
         # Record the next observation but leave the history buffer row open by
         # passing `partial_step=True`.
-        self._writer.append(dict(observation=timestep.observation,
-                                 start_of_episode=timestep.first()),
-                            partial_step=True)
+        self._writer.append(dict(observation=timestep.observation, start_of_episode=timestep.first()), partial_step=True)
         self._add_first_called = True
 
-    def add(self,
-            action: specs.NestedArray,
-            next_timestep: dm_env.TimeStep,
-            extras: specs.NestedArray = ()):
+    def add(self, action: specs.NestedArray, next_timestep: dm_env.TimeStep, extras: specs.NestedArray = ()):
         """Record an action and the following timestep."""
 
         if not self._add_first_called:
-            raise ValueError(
-                'adder.add_first must be called before adder.add.')
+            raise ValueError("adder.add_first must be called before adder.add.")
 
         # Add the timestep to the buffer.
         has_extras = (
-            len(extras) > 0 if isinstance(extras, Sized)  # pylint: disable=g-explicit-length-test
-            else extras is not None)
+            len(extras) > 0 if isinstance(extras, Sized) else extras is not None  # pylint: disable=g-explicit-length-test
+        )
         current_step = dict(
             # Observation was passed at the previous add call.
             action=action,
             reward=next_timestep.reward,
             discount=next_timestep.discount,
             # Start of episode indicator was passed at the previous add call.
-            **({
-                'extras': extras
-            } if has_extras else {}))
+            **({"extras": extras} if has_extras else {}),
+        )
         self._writer.append(current_step)
 
         # Record the next observation and write.
-        self._writer.append(dict(observation=next_timestep.observation,
-                                 start_of_episode=next_timestep.first()),
-                            partial_step=True)
+        self._writer.append(
+            dict(observation=next_timestep.observation, start_of_episode=next_timestep.first()), partial_step=True
+        )
         self._write()
 
         if next_timestep.last():
@@ -206,9 +213,7 @@ class ReverbAdder(base.Adder):
             self.reset()
 
     @classmethod
-    def signature(cls,
-                  environment_spec: specs.EnvironmentSpec,
-                  extras_spec: specs.NestedSpec = ()):
+    def signature(cls, environment_spec: specs.EnvironmentSpec, extras_spec: specs.NestedSpec = ()):
         """This is a helper method for generating signatures for Reverb tables.
         Signatures are useful for validating data specs and shapes, see Reverb's
         documentation for details on how they are used.
@@ -221,18 +226,19 @@ class ReverbAdder(base.Adder):
           extras_spec: A nested structure with leaf nodes that have `.shape` and
             `.dtype` attributes. The structure (and shapes/dspecs) of this must
             be the same as the `extras` passed into `ReverbAdder.add`.
-            
+
         Returns:
           A `Step` whose leaf nodes are `tf.TensorSpec` objects.
-    """
-        spec_step = Step(observation=environment_spec.observations,
-                         action=environment_spec.actions,
-                         reward=environment_spec.rewards,
-                         discount=environment_spec.discounts,
-                         start_of_episode=Array(shape=(), dtype=bool),
-                         extras=extras_spec)
-        return tree.map_structure_with_path(spec_like_to_tensor_spec,
-                                            spec_step)
+        """
+        spec_step = Step(
+            observation=environment_spec.observations,
+            action=environment_spec.actions,
+            reward=environment_spec.rewards,
+            discount=environment_spec.discounts,
+            start_of_episode=Array(shape=(), dtype=bool),
+            extras=extras_spec,
+        )
+        return tree.map_structure_with_path(spec_like_to_tensor_spec, spec_step)
 
     @abc.abstractmethod
     def _write(self):

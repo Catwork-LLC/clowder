@@ -1,13 +1,16 @@
 import abc
 from typing import Optional
-from clowder.variable import VariableClient
-from clowder import adders
-from clowder import specs
-from clowder.utils import batch
-import tensorflow_probability as tfp
+
 import dm_env
-import tree
+import tensorflow_probability as tfp
+
+from clowder import adders, specs
+from clowder.utils import batch
+from clowder.variable import VariableClient
+
 tfd = tfp.distributions
+
+
 class Actor(abc.ABC):
     def select_action(self, observation):
         pass
@@ -20,6 +23,7 @@ class Actor(abc.ABC):
 
     def update(self):
         pass
+
 
 class FeedForwardActor(Actor):
     """A feed-forward actor.
@@ -37,12 +41,12 @@ class FeedForwardActor(Actor):
     ):
         """Initializes the actor.
 
-            Args:
-            policy_network: the policy to run.
-            adder: the adder object to which allows to add experiences to a
-                dataset/replay buffer.
-            variable_client: object which allows to copy weights from the learner copy
-                of the policy to the actor copy (in case they are separate).
+        Args:
+        policy_network: the policy to run.
+        adder: the adder object to which allows to add experiences to a
+            dataset/replay buffer.
+        variable_client: object which allows to copy weights from the learner copy
+            of the policy to the actor copy (in case they are separate).
         """
 
         # Store these for later use.

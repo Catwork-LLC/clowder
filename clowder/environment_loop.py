@@ -1,16 +1,17 @@
 import abc
-import time
 import operator
+import time
 from enum import IntFlag
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
+
 import dm_env
-import tree
 import numpy as np
-from clowder.actor import Actor
+import tree
 from dm_env import TimeStep, specs
+
+from clowder.actor import Actor
 from clowder.specs import Nest
 from clowder.worker import Worker
-from clowder import signals
 
 
 def _generate_zeros_from_spec(spec: specs.Array) -> np.ndarray:
@@ -28,13 +29,11 @@ class Loop(Worker):
 
     @abc.abstractmethod
     def run(self, num_episodes: Optional[int] = None) -> None:
-        """
-        """
+        """ """
 
 
 class EpisodeCallback:
-    """Callback class for custom episode metrics.
-    """
+    """Callback class for custom episode metrics."""
 
     def __init__(self) -> None:
         self._custom_metrics = {}
@@ -56,8 +55,7 @@ class EpisodeCallback:
     def on_episode_init(self, timestep: TimeStep) -> None:
         pass
 
-    def on_episode_step(self, step: int, action: Nest,
-                        timestep: TimeStep) -> None:
+    def on_episode_step(self, step: int, action: Nest, timestep: TimeStep) -> None:
         pass
 
     def on_episode_end(self) -> None:
@@ -66,12 +64,14 @@ class EpisodeCallback:
 
 class EnvironmentLoop(Loop):
 
-    def __init__(self,
-                 actor: Actor,
-                 environment: dm_env.Environment,
-                 phase: Phase = Phase.NONE,
-                 should_update: bool = False,
-                 episode_callback: Optional[EpisodeCallback] = None):
+    def __init__(
+        self,
+        actor: Actor,
+        environment: dm_env.Environment,
+        phase: Phase = Phase.NONE,
+        should_update: bool = False,
+        episode_callback: Optional[EpisodeCallback] = None,
+    ):
         self._actor = actor
         self._environment = environment
         self._should_update = should_update
@@ -84,8 +84,7 @@ class EnvironmentLoop(Loop):
         episode_steps: int = 0
         select_action_durations: List[float] = []
         env_step_durations: List[float] = []
-        episode_return = tree.map_structure(_generate_zeros_from_spec,
-                                            self._environment.reward_spec())
+        episode_return = tree.map_structure(_generate_zeros_from_spec, self._environment.reward_spec())
         env_reset_start = time.perf_counter()
         timestep = self._environment.reset()
         env_reset_duration = time.perf_counter() - env_reset_start
@@ -97,14 +96,12 @@ class EnvironmentLoop(Loop):
             episode_steps += 1
             select_action_start = time.perf_counter()
             action = self._actor.select_action(timestep.observation)
-            select_action_durations.append(time.perf_counter() -
-                                           select_action_start)
+            select_action_durations.append(time.perf_counter() - select_action_start)
             env_step_start = time.perf_counter()
             timestep = self._environment.step(action)
             env_step_durations.append(time.perf_counter() - env_step_start)
             self._actor.observe(action, timestep)
-            self._episode_callback.on_episode_step(episode_steps, action,
-                                                   timestep)
+            self._episode_callback.on_episode_step(episode_steps, action, timestep)
             if self._should_update:
                 self._actor.update()
             # Equivalent to: episode_return += timestep.reward
@@ -112,28 +109,31 @@ class EnvironmentLoop(Loop):
             # Array, episode_return will not be mutated in-place. (In all other
             # cases, the returned episode_return will be the same object as the
             # argument episode_return.)
-            episode_return = tree.map_structure(operator.iadd, episode_return,
-                                                timestep.reward)
+            episode_return = tree.map_structure(operator.iadd, episode_return, timestep.reward)
 
-        steps_per_second = episode_steps / (time.perf_counter() -
-                                            episode_start_time)
+        steps_per_second = episode_steps / (time.perf_counter() - episode_start_time)
         result = {
-            'episode_length': episode_steps,
-            'episode_return': episode_return,
-            'steps_per_second': steps_per_second,
-            'env_reset_duration_sec': env_reset_duration,
-            'select_action_duration_sec': np.mean(select_action_durations),
-            'env_step_duration_sec': np.mean(env_step_durations),
+            "episode_length": episode_steps,
+            "episode_return": episode_return,
+            "steps_per_second": steps_per_second,
+            "env_reset_duration_sec": env_reset_duration,
+            "select_action_duration_sec": np.mean(select_action_durations),
+            "env_step_duration_sec": np.mean(env_step_durations),
         }
         return result
 
-    def run(self, num_episodes: Optional[int] = None, num_steps: Optional[int] = None,):
+    def run(
+        self,
+        num_episodes: Optional[int] = None,
+        num_steps: Optional[int] = None,
+    ):
         if not (num_episodes is None or num_steps is None):
             raise ValueError('Either "num_episodes" or "num_steps" should be None.')
 
         def should_terminate(episode_count: int, step_count: int) -> bool:
-            return ((num_episodes is not None and episode_count >= num_episodes) or
-                    (num_steps is not None and step_count >= num_steps))
+            return (num_episodes is not None and episode_count >= num_episodes) or (
+                num_steps is not None and step_count >= num_steps
+            )
 
         episode_count: int = 0
         step_count: int = 0
@@ -147,7 +147,7 @@ class EnvironmentLoop(Loop):
         while not should_terminate(episode_count, step_count):
             episode_start = time.perf_counter()
             result = self.run_episode()
-            result = {**result, **{'episode_duration': time.perf_counter() - episode_start}}
+            result = {**result, **{"episode_duration": time.perf_counter() - episode_start}}
             episode_count += 1
-            step_count += int(result['episode_length'])
-                # Log the given episode results.
+            step_count += int(result["episode_length"])
+            # Log the given episode results.

@@ -1,1 +1,0 @@
-from clowder.ops.base_ops import assert_rank_and_shape_compatibility

@@ -1,1 +1,0 @@
-from clowder.loggers.base import Logger

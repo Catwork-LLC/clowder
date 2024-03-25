@@ -1,6 +1,8 @@
 import numpy as np
-from clowder.ops import action_value_ops as rl
 import pytest
+
+from clowder.ops import action_value_ops as rl
+
 
 @pytest.fixture()
 def resource():
@@ -13,6 +15,7 @@ def resource():
     qlearning = rl.qlearning(q_tm1, a_tm1, r_t, pcont_t, q_t)
     yield qlearning
     print("teardown")
+
 
 class TestQLearning:
     def test_target(self, resource):

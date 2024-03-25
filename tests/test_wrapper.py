@@ -3,8 +3,9 @@
 import copy
 import pickle
 
-from tests import mocks
 from clowder.wrappers import base
+from tests import mocks
+
 
 class TestBaseWrapper:
 
