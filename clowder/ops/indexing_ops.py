@@ -5,6 +5,7 @@ These ops support indexing the 2D tensors representing batches of values
 of values (shape: [T, B, dim]. `T` is the length of the rollout, `B` is the
 batch size, and `dim` the size of the dimension that must be indexed.
 """
+
 import numpy as np
 
 
@@ -23,14 +24,17 @@ def assert_compatible_shapes(value_shape, index_shape):
     # note: rank-0 "[]" TensorShape is still True.
     if value_shape and index_shape:
         try:
-            msg = ("Shapes of \"values\" and \"indices\" do not correspond to "
-                "minibatch (2-D) or sequence-minibatch (3-D) indexing")
+            msg = (
+                'Shapes of "values" and "indices" do not correspond to ' "minibatch (2-D) or sequence-minibatch (3-D) indexing"
+            )
             assert (value_shape.ndims, index_shape.ndims) in [(2, 1), (3, 2)], msg
-            msg = ("\"values\" and \"indices\" have incompatible shapes of {} "
-                "and {}, respectively").format(value_shape, index_shape)
+            msg = ('"values" and "indices" have incompatible shapes of {} ' "and {}, respectively").format(
+                value_shape, index_shape
+            )
             assert value_shape[:-1].is_compatible_with(index_shape), msg
         except AssertionError as e:
             raise ValueError(e)  # Convert AssertionError to ValueError.
+
 
 def batched_index(values, indices, keepdims=None):
     """Equivalent to `values[:, indices]`.
