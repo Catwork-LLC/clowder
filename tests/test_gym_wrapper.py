@@ -1,19 +1,20 @@
 """Tests for gym_wrapper."""
 
-import pytest
-
-from dm_env import specs
 import numpy as np
-from clowder.gym_wrapper import GymWrapper, _convert_to_spec, GymAtariAdapter
+import pytest
+from dm_env import specs
+
+from clowder.gym_wrapper import GymAtariAdapter, GymWrapper, _convert_to_spec
 
 SKIP_GYM_TESTS = False
-SKIP_GYM_MESSAGE = 'gym not installed.'
+SKIP_GYM_MESSAGE = "gym not installed."
 SKIP_ATARI_TESTS = False
-SKIP_ATARI_MESSAGE = ''
+SKIP_ATARI_MESSAGE = ""
 
 try:
     # pylint: disable=g-import-not-at-top
     import gymnasium as gym
+
     # pylint: enable=g-import-not-at-top
 except ModuleNotFoundError:
     SKIP_GYM_TESTS = True
@@ -37,15 +38,15 @@ else:
 class TestGymWrapper:
 
     def test_gym_cartpole(self):
-        env = GymWrapper(gym.make('CartPole-v0'))
+        env = GymWrapper(gym.make("CartPole-v0"))
 
         # Test converted observation spec.
         observation_spec: specs.BoundedArray = env.observation_spec()
         assert isinstance(observation_spec, specs.BoundedArray)
-        assert observation_spec.shape == (4, )
-        assert observation_spec.minimum.shape == (4, )
-        assert observation_spec.maximum.shape == (4, )
-        assert observation_spec.dtype == np.dtype('float32')
+        assert observation_spec.shape == (4,)
+        assert observation_spec.minimum.shape == (4,)
+        assert observation_spec.maximum.shape == (4,)
+        assert observation_spec.dtype == np.dtype("float32")
 
         # Test converted action spec.
         action_spec: specs.BoundedArray = env.action_spec()
@@ -54,7 +55,7 @@ class TestGymWrapper:
         assert action_spec._minimum == 0
         assert action_spec._maximum == 1
         assert action_spec.num_values == 2
-        assert action_spec.dtype == np.dtype('int64')
+        assert action_spec.dtype == np.dtype("int64")
 
         # Test step.
         timestep = env.reset()
@@ -62,16 +63,16 @@ class TestGymWrapper:
         timestep = env.step(1)
         assert timestep.reward == 1.0
         assert np.isscalar(timestep.reward)
-        assert timestep.observation.shape == (4, )
+        assert timestep.observation.shape == (4,)
         env.close()
 
     def test_early_truncation(self):
         # Pendulum has no early termination condition. Recent versions of gym force
         # to use v1. We try both in case an earlier version is installed.
         try:
-            gym_env = gym.make('Pendulum-v1')
+            gym_env = gym.make("Pendulum-v1")
         except:  # pylint: disable=bare-except
-            gym_env = gym.make('Pendulum-v0')
+            gym_env = gym.make("Pendulum-v0")
         env = GymWrapper(gym_env)
         ts = env.reset()
         while not ts.last():
@@ -95,7 +96,7 @@ class TestGymWrapper:
 class TestAtariGymWrapper:
 
     def test_pong(self):
-        env = gym.make('ALE/Pong-v5', full_action_space=True)
+        env = gym.make("ALE/Pong-v5", full_action_space=True)
         env = GymAtariAdapter(env)
 
         # Test converted observation spec. This should expose (RGB, LIVES).
@@ -110,11 +111,10 @@ class TestAtariGymWrapper:
         assert action_spec.minimum == 0
         assert action_spec.maximum == 17
         assert action_spec.num_values == 18
-        assert action_spec.dtype == np.dtype('int64')
+        assert action_spec.dtype == np.dtype("int64")
 
         # Test step.
         timestep = env.reset()
         assert timestep.first()
         _ = env.step([np.array(0)])
         env.close()
-

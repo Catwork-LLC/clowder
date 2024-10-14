@@ -1,11 +1,11 @@
 """Tensor framework-agnostic utilities for manipulating nested structures."""
 
-from typing import Sequence, List, TypeVar, Any
+from typing import Any, List, Sequence, TypeVar
 
 import numpy as np
 import tree
 
-ElementType = TypeVar('ElementType')
+ElementType = TypeVar("ElementType")
 
 
 def fast_map_structure(func, *structure):
@@ -22,15 +22,12 @@ def fast_map_structure_with_path(func, *structure):
     head_entries_with_path = tree.flatten_with_path(structure[0])
     if len(structure) > 1:
         tail_entries = (tree.flatten(s) for s in structure[1:])
-        entries_with_path = [
-            e[0] + e[1:] for e in zip(head_entries_with_path, *tail_entries)
-        ]
+        entries_with_path = [e[0] + e[1:] for e in zip(head_entries_with_path, *tail_entries)]
     else:
         entries_with_path = head_entries_with_path
     # Arbitrarily choose one of the structures of the original sequence (the last)
     # to match the structure for the flattened sequence.
-    return tree.unflatten_as(structure[-1],
-                             [func(*x) for x in entries_with_path])
+    return tree.unflatten_as(structure[-1], [func(*x) for x in entries_with_path])
 
 
 def stack_sequence_fields(sequence: Sequence[ElementType]) -> ElementType:
@@ -82,68 +79,63 @@ def stack_sequence_fields(sequence: Sequence[ElementType]) -> ElementType:
     """
     # Handle empty input sequences.
     if not sequence:
-        raise ValueError('Input sequence must not be empty')
+        raise ValueError("Input sequence must not be empty")
 
     # Default to asarray when arrays don't have the same shape to be compatible
     # with old behaviour.
     try:
         return fast_map_structure(lambda *values: np.stack(values), *sequence)
     except ValueError:
-        return fast_map_structure(
-            lambda *values: np.asarray(values, dtype=object), *sequence)
+        return fast_map_structure(lambda *values: np.asarray(values, dtype=object), *sequence)
 
 
-def unstack_sequence_fields(struct: ElementType,
-                            batch_size: int) -> List[ElementType]:
+def unstack_sequence_fields(struct: ElementType, batch_size: int) -> List[ElementType]:
     """Converts a struct of batched arrays to a list of structs.
 
-  This is effectively the inverse of `stack_sequence_fields`.
+    This is effectively the inverse of `stack_sequence_fields`.
 
-  Args:
-    struct: An (arbitrarily nested) structure of arrays.
-    batch_size: The length of the leading dimension of each array in the struct.
-      This is assumed to be static and known.
+    Args:
+      struct: An (arbitrarily nested) structure of arrays.
+      batch_size: The length of the leading dimension of each array in the struct.
+        This is assumed to be static and known.
 
-  Returns:
-    A list of structs with the same structure as `struct`, where each leaf node
-     is an unbatched element of the original leaf node.
-  """
+    Returns:
+      A list of structs with the same structure as `struct`, where each leaf node
+       is an unbatched element of the original leaf node.
+    """
 
-    return [
-        tree.map_structure(lambda s, i=i: s[i], struct)
-        for i in range(batch_size)
-    ]
+    return [tree.map_structure(lambda s, i=i: s[i], struct) for i in range(batch_size)]
 
 
 def broadcast_structures(*args: Any) -> Any:
     """Returns versions of the arguments that give them the same nested structure.
 
-  Any nested items in *args must have the same structure.
+    Any nested items in *args must have the same structure.
 
-  Any non-nested item will be replaced with a nested version that shares that
-  structure. The leaves will all be references to the same original non-nested
-  item.
+    Any non-nested item will be replaced with a nested version that shares that
+    structure. The leaves will all be references to the same original non-nested
+    item.
 
-  If all *args are nested, or all *args are non-nested, this function will
-  return *args unchanged.
+    If all *args are nested, or all *args are non-nested, this function will
+    return *args unchanged.
 
-  Example:
-  ```
-  a = ('a', 'b')
-  b = 'c'
-  tree_a, tree_b = broadcast_structure(a, b)
-  tree_a
-  > ('a', 'b')
-  tree_b
-  > ('c', 'c')
-  ```
+    Example:
+    ```
+    a = ('a', 'b')
+    b = 'c'
+    tree_a, tree_b = broadcast_structure(a, b)
+    tree_a
+    > ('a', 'b')
+    tree_b
+    > ('c', 'c')
+    ```
 
-  Args:
-    *args: A Sequence of nested or non-nested items.
+    Args:
+      *args: A Sequence of nested or non-nested items.
 
-  Returns:
-    `*args`, except with all items sharing the same nest structure.
-  """
+    Returns:
+      `*args`, except with all items sharing the same nest structure.
+    """
     if not args:
         return
 

@@ -20,8 +20,7 @@ class EnvironmentWrapper(dm_env.Environment):
 
     def __getattr__(self, name):
         if name.startswith("__"):
-            raise AttributeError(
-                "attempted to get missing private attribute '{}'".format(name))
+            raise AttributeError(f"attempted to get missing private attribute '{name}'")
         return getattr(self._environment, name)
 
     @property

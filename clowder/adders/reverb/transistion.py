@@ -7,14 +7,13 @@ into a single transition, simplifying to a simple transition adder when N=1.
 import copy
 from typing import Optional, Tuple
 
-from clowder import specs
-from clowder.adders.reverb import base
-from clowder.adders.reverb import utils
-from clowder.utils import tree_utils
-
 import numpy as np
 import reverb
 import tree
+
+from clowder import specs
+from clowder.adders.reverb import base, utils
+from clowder.utils import tree_utils
 
 
 class NStepTransitionAdder(base.ReverbAdder):
@@ -79,22 +78,22 @@ class NStepTransitionAdder(base.ReverbAdder):
     ):
         """Creates an N-step transition adder.
 
-    Args:
-        client: A `reverb.Client` to send the data to replay through.
-        n_step: The "N" in N-step transition. See the class docstring for the
-            precise definition of what an N-step transition is. `n_step` must be at
-            least 1, in which case we use the standard one-step transition, i.e.
-            (s_t, a_t, r_t, d_t, s_t+1, e_t).
-        discount: Discount factor to apply. This corresponds to the agent's
-            discount in the class docstring.
-        priority_fns: See docstring for BaseAdder.
-        max_in_flight_items: The maximum number of items allowed to be "in flight"
-            at the same time. See `block_until_num_items` in
-            `reverb.TrajectoryWriter.flush` for more info.
+        Args:
+            client: A `reverb.Client` to send the data to replay through.
+            n_step: The "N" in N-step transition. See the class docstring for the
+                precise definition of what an N-step transition is. `n_step` must be at
+                least 1, in which case we use the standard one-step transition, i.e.
+                (s_t, a_t, r_t, d_t, s_t+1, e_t).
+            discount: Discount factor to apply. This corresponds to the agent's
+                discount in the class docstring.
+            priority_fns: See docstring for BaseAdder.
+            max_in_flight_items: The maximum number of items allowed to be "in flight"
+                at the same time. See `block_until_num_items` in
+                `reverb.TrajectoryWriter.flush` for more info.
 
-    Raises:
-        ValueError: If n_step is less than 1.
-    """
+        Raises:
+            ValueError: If n_step is less than 1.
+        """
         # Makes the additional discount a float32, which means that it will be
         # upcast if rewards/discounts are float64 and left alone otherwise.
         self.n_step = n_step
@@ -102,10 +101,9 @@ class NStepTransitionAdder(base.ReverbAdder):
         self._first_idx = 0
         self._last_idx = 0
 
-        super().__init__(client=client,
-                         max_sequence_length=n_step + 1,
-                         priority_fns=priority_fns,
-                         max_in_flight_items=max_in_flight_items)
+        super().__init__(
+            client=client, max_sequence_length=n_step + 1, priority_fns=priority_fns, max_in_flight_items=max_in_flight_items
+        )
 
     def add(self, *args, **kwargs):
         # Increment the indices for the start and end of the window for computing
@@ -132,38 +130,35 @@ class NStepTransitionAdder(base.ReverbAdder):
         get_last = lambda x: x[self._last_idx]
         # Note: this getter is meant to be used on a TrajectoryWriter.history to
         # obtain its numpy values.
-        get_all_np = lambda x: x[self._first_idx:self._last_idx].numpy()
+        get_all_np = lambda x: x[self._first_idx : self._last_idx].numpy()
 
         # Get the state, action, next_state, as well as possibly extras for the
         # transition that is about to be written.
         history = self._writer.history
-        s, a = tree.map_structure(get_first,
-                                  (history['observation'], history['action']))
-        s_ = tree.map_structure(get_last, history['observation'])
+        s, a = tree.map_structure(get_first, (history["observation"], history["action"]))
+        s_ = tree.map_structure(get_last, history["observation"])
 
         # Maybe get extras to add to the transition later.
-        if 'extras' in history:
-            extras = tree.map_structure(get_first, history['extras'])
+        if "extras" in history:
+            extras = tree.map_structure(get_first, history["extras"])
 
         # Note: at the beginning of an episode we will add the initial N-1
         # transitions (of size 1, 2, ...) and at the end of an episode (when
         # called from write_last) we will write the final transitions of size (N,
         # N-1, ...). See the Note in the docstring.
         # Get numpy view of the steps to be fed into the priority functions.
-        reward, discount = tree.map_structure(
-            get_all_np, (history['reward'], history['discount']))
+        reward, discount = tree.map_structure(get_all_np, (history["reward"], history["discount"]))
 
         # Compute discounted return and geometric discount over n steps.
-        n_step_return, total_discount = self._compute_cumulative_quantities(
-            reward, discount)
+        n_step_return, total_discount = self._compute_cumulative_quantities(reward, discount)
 
         # Append the computed n-step return and total discount.
         # Note: if this call to _write() is within a call to _write_last(), then
         # this is the only data being appended and so it is not a partial append.
-        self._writer.append(dict(n_step_return=n_step_return,
-                                 total_discount=total_discount),
-                            partial_step=self._writer.episode_steps
-                            <= self._last_idx)
+        self._writer.append(
+            dict(n_step_return=n_step_return, total_discount=total_discount),
+            partial_step=self._writer.episode_steps <= self._last_idx,
+        )
         # This should be done immediately after self._writer.append so the history
         # includes the recently appended data.
         history = self._writer.history
@@ -172,25 +167,23 @@ class NStepTransitionAdder(base.ReverbAdder):
         # the first observation and action in the buffer, along with the cumulative
         # reward and discount computed above.
         n_step_return, total_discount = tree.map_structure(
-            lambda x: x[-1],
-            (history['n_step_return'], history['total_discount']))
+            lambda x: x[-1], (history["n_step_return"], history["total_discount"])
+        )
         transition = types.Transition(
             observation=s,
             action=a,
             reward=n_step_return,
             discount=total_discount,
             next_observation=s_,
-            extras=(extras if 'extras' in history else ()))
+            extras=(extras if "extras" in history else ()),
+        )
 
         # Calculate the priority for this transition.
-        table_priorities = utils.calculate_priorities(self._priority_fns,
-                                                      transition)
+        table_priorities = utils.calculate_priorities(self._priority_fns, transition)
 
         # Insert the transition into replay along with its priority.
         for table, priority in table_priorities.items():
-            self._writer.create_item(table=table,
-                                     priority=priority,
-                                     trajectory=transition)
+            self._writer.create_item(table=table, priority=priority, trajectory=transition)
             self._writer.flush(self._max_in_flight_items)
 
     def _write_last(self):
@@ -209,8 +202,7 @@ class NStepTransitionAdder(base.ReverbAdder):
         # Give the same tree structure to the n-step return accumulator,
         # n-step discount accumulator, and self.discount, so that they can be
         # iterated in parallel using tree.map_structure.
-        rewards, discounts, self_discount = tree_utils.broadcast_structures(
-            rewards, discounts, self._discount)
+        rewards, discounts, self_discount = tree_utils.broadcast_structures(rewards, discounts, self._discount)
         flat_rewards = tree.flatten(rewards)
         flat_discounts = tree.flatten(discounts)
         flat_self_discount = tree.flatten(self_discount)
@@ -221,9 +213,7 @@ class NStepTransitionAdder(base.ReverbAdder):
         # Broadcast n_step_return to have the broadcasted shape of
         # reward * discount.
         n_step_return = [
-            np.copy(np.broadcast_to(r[0],
-                                    np.broadcast(r[0], d).shape))
-            for r, d in zip(flat_rewards, total_discount)
+            np.copy(np.broadcast_to(r[0], np.broadcast(r[0], d).shape)) for r, d in zip(flat_rewards, total_discount)
         ]
 
         # NOTE: total_discount will have one less self_discount applied to it than
@@ -231,9 +221,7 @@ class NStepTransitionAdder(base.ReverbAdder):
         # an additional discount we don't apply it twice. Inside the following loop
         # we will apply this right before summing up the n_step_return.
         for i in range(1, self._n_step):
-            for nsr, td, r, d, sd in zip(n_step_return, total_discount,
-                                         flat_rewards, flat_discounts,
-                                         flat_self_discount):
+            for nsr, td, r, d, sd in zip(n_step_return, total_discount, flat_rewards, flat_discounts, flat_self_discount):
                 # Equivalent to: `total_discount *= self._discount`.
                 td *= sd
                 # Equivalent to: `n_step_return += reward[i] * total_discount`.
@@ -249,9 +237,7 @@ class NStepTransitionAdder(base.ReverbAdder):
     # used as alternative constructors or when modifying some global state,
     # neither of which is done here.
     @classmethod
-    def signature(cls,
-                  environment_spec: specs.EnvironmentSpec,
-                  extras_spec: types.NestedSpec = ()):
+    def signature(cls, environment_spec: specs.EnvironmentSpec, extras_spec: types.NestedSpec = ()):
 
         # This function currently assumes that self._discount is a scalar.
         # If it ever becomes a nested structure and/or a np.ndarray, this method
@@ -264,11 +250,10 @@ class NStepTransitionAdder(base.ReverbAdder):
         # can ignore it.
 
         rewards_spec, step_discounts_spec = tree_utils.broadcast_structures(
-            environment_spec.rewards, environment_spec.discounts)
-        rewards_spec = tree.map_structure(_broadcast_specs, rewards_spec,
-                                          step_discounts_spec)
-        step_discounts_spec = tree.map_structure(copy.deepcopy,
-                                                 step_discounts_spec)
+            environment_spec.rewards, environment_spec.discounts
+        )
+        rewards_spec = tree.map_structure(_broadcast_specs, rewards_spec, step_discounts_spec)
+        step_discounts_spec = tree.map_structure(copy.deepcopy, step_discounts_spec)
 
         transition_spec = types.Transition(
             environment_spec.observations,
@@ -276,21 +261,21 @@ class NStepTransitionAdder(base.ReverbAdder):
             rewards_spec,
             step_discounts_spec,
             environment_spec.observations,  # next_observation
-            extras_spec)
+            extras_spec,
+        )
 
-        return tree.map_structure_with_path(base.spec_like_to_tensor_spec,
-                                            transition_spec)
+        return tree.map_structure_with_path(base.spec_like_to_tensor_spec, transition_spec)
 
 
 def _broadcast_specs(*args: specs.Array) -> specs.Array:
     """Like np.broadcast, but for specs.Array.
 
-  Args:
-    *args: one or more specs.Array instances.
+    Args:
+      *args: one or more specs.Array instances.
 
-  Returns:
-    A specs.Array with the broadcasted shape and dtype of the specs in *args.
-  """
+    Returns:
+      A specs.Array with the broadcasted shape and dtype of the specs in *args.
+    """
     bc_info = np.broadcast(*tuple(a.generate_value() for a in args))
     dtype = np.result_type(*tuple(a.dtype for a in args))
     return specs.Array(shape=bc_info.shape, dtype=dtype)
