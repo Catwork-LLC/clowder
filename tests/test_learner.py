@@ -1,8 +1,9 @@
 from typing import List
 
-from clowder.learner import Learner
-from clowder import specs
 import pytest
+
+from clowder import specs
+from clowder.learner import Learner
 
 
 class StepCountingLearner(Learner):
@@ -20,12 +21,10 @@ class StepCountingLearner(Learner):
     def get_variables(self, unused: List[str]) -> List[specs.NestedArray]:
         del unused
         return []
-    
-    def restore(self, state):
-        ...
-    
-    def save(self):
-        ...
+
+    def restore(self, state): ...
+
+    def save(self): ...
 
 
 class TestLearner:

@@ -1,7 +1,8 @@
-from typing import Sequence, Union, List, Any
+import abc
 import datetime
 import time
-import abc
+from typing import Sequence, Union
+
 from clowder import specs
 
 
@@ -32,14 +33,14 @@ class VariableClient(abc.ABC):
 
     def update(self, wait: bool = False):
         self._call_counter += 1
-        
+
         if isinstance(self._update_period, datetime.timedelta):
             if self._last_call + self._update_period.total_seconds() > time.time():
                 return
         else:
             if self._call_counter < self._update_period:
                 return
-        
+
         if wait:
             self._call_counter = 0
             self._last_call = time.time()
@@ -52,7 +53,7 @@ class VariableClient(abc.ABC):
 
     def _callback(self, params_list: Sequence[specs.Nest]):
         self._params = params_list
-    
+
     @property
     def params(self) -> Union[specs.Nest, Sequence[specs.Nest]]:
         """Returns the first params for one key, otherwise the whole params list."""

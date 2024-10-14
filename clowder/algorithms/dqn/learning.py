@@ -1,10 +1,12 @@
-import clowder
-from typing import Optional, Union, List, Dict
-from clowder import specs
+from typing import Dict, List, Optional, Union
+
 import reverb
-from clowder import loggers
 import tensorflow as tf
 import torch
+
+import clowder
+from clowder import loggers, specs
+
 
 class DQNLearner(clowder.Learner, clowder.Saveable):
     def __init__(

@@ -1,7 +1,7 @@
 import abc
 import functools
-
 from typing import Any, Callable, List, Optional
+
 
 class RemotableMeta(abc.ABCMeta):
     def __new__(mcs, name, bases, attrs):
@@ -13,6 +13,7 @@ class RemotableMeta(abc.ABCMeta):
                 remote_methods.add(method.__name__)
         attrs["__remote_methods__"] = list(remote_methods)
         return super().__new__(mcs, name, bases, attrs)
+
 
 class Remotable(abc.ABC, metaclass=RemotableMeta):
 
@@ -28,17 +29,14 @@ class Remotable(abc.ABC, metaclass=RemotableMeta):
         return self._identifier
 
     def remote_method_name(self, method: str) -> str:
-        return method if self._identifier is None else (self._identifier +
-                                                        "::" + method)
+        return method if self._identifier is None else (self._identifier + "::" + method)
+
 
 class Remote:
 
-    def __init__(self,
-                 target: Remotable,
-                 server_name: str,
-                 server_addr: str,
-                 name: Optional[str] = None,
-                 timeout: float = 60) -> None:
+    def __init__(
+        self, target: Remotable, server_name: str, server_addr: str, name: Optional[str] = None, timeout: float = 60
+    ) -> None:
         self._target_repr = repr(target)
         self._server_name = server_name
         self._server_addr = server_addr
@@ -59,9 +57,9 @@ class Remote:
             raise
 
     def __repr__(self):
-        return (f"Remote(target={self._target_repr} " +
-                f"server_name={self._server_name} " +
-                f"server_addr={self._server_addr})")
+        return (
+            f"Remote(target={self._target_repr} " + f"server_name={self._server_name} " + f"server_addr={self._server_addr})"
+        )
 
     @property
     def name(self) -> str:
@@ -80,6 +78,7 @@ class Remote:
     @property
     def server_addr(self) -> str:
         return self._server_addr
+
     @property
     def connected(self) -> bool:
         return self._connected
@@ -89,8 +88,7 @@ class Remote:
         return self._identifier
 
     def remote_method_name(self, method: str) -> str:
-        return method if self._identifier is None else (self._identifier +
-                                                        "::" + method)
+        return method if self._identifier is None else (self._identifier + "::" + method)
 
     def connect(self) -> None:
         if self._connected:
@@ -98,11 +96,7 @@ class Remote:
         self._bind()
         self._connected = True
 
-    def _reset(self,
-               server_name: str,
-               server_addr: str,
-               name: Optional[str] = None,
-               timeout: float = 60) -> None:
+    def _reset(self, server_name: str, server_addr: str, name: Optional[str] = None, timeout: float = 60) -> None:
         if name is None:
             name = generate_random_name()
         self._server_name = server_name
@@ -115,10 +109,8 @@ class Remote:
     def _bind(self) -> None:
         for method in self._remote_methods:
             method_name = self.remote_method_name(method)
-            self._client_methods[method] = functools.partial(
-                self.client.sync, self.server_name, method_name)
-            self._client_methods["async_" + method] = functools.partial(
-                self.client.async_, self.server_name, method_name)
+            self._client_methods[method] = functools.partial(self.client.sync, self.server_name, method_name)
+            self._client_methods["async_" + method] = functools.partial(self.client.async_, self.server_name, method_name)
 
 
 def remote_method(batch_size: Optional[int] = None) -> Callable[..., Any]:
@@ -130,14 +122,13 @@ def remote_method(batch_size: Optional[int] = None) -> Callable[..., Any]:
 
     return remote_method_impl
 
+
 class Launchable(abc.ABC):
 
     @abc.abstractmethod
     def init_launching(self) -> None:
-        """
-        """
+        """ """
 
     @abc.abstractmethod
     def init_execution(self) -> None:
-        """
-        """
+        """ """

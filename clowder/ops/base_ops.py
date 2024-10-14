@@ -2,7 +2,8 @@ import collections
 
 LossOutput = collections.namedtuple("loss_output", ["loss", "extra"])
 
-class Dimension(object):
+
+class Dimension:
     def __init__(self, value) -> None:
         if isinstance(value, int):
             if value < 0:
@@ -18,11 +19,11 @@ class Dimension(object):
             except AttributeError:
                 raise TypeError(
                     "Dimension value must be integer or None or have "
-                    "an __index__ method, got value '{0!r}' with type '{1!r}'".format(
-                        value, type(value))) from None
+                    "an __index__ method, got value '{!r}' with type '{!r}'".format(value, type(value))
+                ) from None
         if self._value < 0:
             raise ValueError("Dimension %d must be >= 0" % self._value)
-        
+
     def merge_with(self, other):
         other = as_dimension(other)
         self.assert_is_compatible_with(other)
@@ -30,15 +31,14 @@ class Dimension(object):
             return Dimension(other.value)
         else:
             return Dimension(self._value)
-    
+
     def assert_is_compatible_with(self, other):
         other = as_dimension(other)
-        return (self._value is None or other.value is None or
-            self._value == other.value)
-    
+        return self._value is None or other.value is None or self._value == other.value
+
     def __int__(self):
         return self._value
-    
+
     def __eq__(self, other):
         """Returns true if `other` has the same known value as this Dimension."""
         try:
@@ -48,7 +48,7 @@ class Dimension(object):
         if self._value is None or other.value is None:
             return None
         return self._value == other.value
-    
+
     def __radd__(self, other):
         """Returns the sum of `other` and `self`.
 
@@ -59,7 +59,7 @@ class Dimension(object):
         A Dimension whose value is the sum of `self` and `other`.
         """
         return self + other
-    
+
     def __add__(self, other):
         """Returns the sum of `self` and `other`.
 
@@ -90,7 +90,7 @@ class Dimension(object):
             return Dimension(None)
         else:
             return Dimension(self._value + other.value)
-    
+
     def __sub__(self, other):
         """Returns the subtraction of `other` from `self`.
 
@@ -121,7 +121,7 @@ class Dimension(object):
             return Dimension(None)
         else:
             return Dimension(self._value - other.value)
-    
+
     def __rsub__(self, other):
         """Returns the subtraction of `self` from `other`.
 
@@ -136,12 +136,12 @@ class Dimension(object):
             return Dimension(None)
         else:
             return Dimension(other.value - self._value)
-    
+
     @property
     def value(self):
         """The value of this dimension, or None if it is unknown."""
         return self._value
-    
+
     def is_compatible_with(self, other):
         """Returns true if `other` is compatible with this Dimension.
 
@@ -155,9 +155,8 @@ class Dimension(object):
         True if this Dimension and `other` are compatible.
         """
         other = as_dimension(other)
-        return (self._value is None or other.value is None or
-                self._value == other.value)
-        
+        return self._value is None or other.value is None or self._value == other.value
+
 
 def as_dimension(value):
     """Converts the given value to a Dimension.
@@ -176,6 +175,7 @@ def as_dimension(value):
         return value
     else:
         return Dimension(value)
+
 
 def as_shape(shape):
     """Converts the given object to a Shape."""
@@ -201,14 +201,14 @@ class Shape:
             self._dims = None
         elif isinstance(dims, Shape):
             self._dims = dims._dims
-    
+
     @property
     def rank(self):
         """Returns the rank of this shape, or None if it is unspecified."""
         if self._dims is not None:
             return len(self._dims)
         return None
-    
+
     def assert_has_rank(self, rank):
         """Raises an exception if `self` is not compatible with the given `rank`.
 
@@ -220,7 +220,7 @@ class Shape:
         """
         if self.rank not in (None, rank):
             raise ValueError("Shape %s must have rank %d" % (self, rank))
-    
+
     def assert_same_rank(self, other):
         """Raises an exception if `self` and `other` do not have compatible ranks.
 
@@ -235,7 +235,7 @@ class Shape:
         if self.rank is not None and other.rank is not None:
             if self.rank != other.rank:
                 raise ValueError(f"Shapes {self} and {other} must have the same rank")
-    
+
     def as_list(self):
         """Returns a list of integers or `None` for each dimension.
 
@@ -248,7 +248,7 @@ class Shape:
         if self._dims is None:
             raise ValueError("as_list() is not defined on an unknown Shape.")
         return list(self._dims)
-    
+
     def merge_with(self, other):
         """Returns a `TensorShape` combining the information in `self` and `other`.
 
@@ -298,6 +298,7 @@ class Shape:
             except ValueError:
                 raise ValueError(f"shape {self} and {other} are not compatible")
 
+
 def assert_rank_and_shape_compatibility(tensors, rank):
     """Asserts that the tensors have the correct rank and compatible shapes.
 
@@ -315,10 +316,9 @@ def assert_rank_and_shape_compatibility(tensors, rank):
     """
     if not tensors:
         raise ValueError("List of tensors should be non-empty.")
-    
+
     union_of_shapes = Shape(None)
     for tensor in tensors:
         tensor_shape = Shape(tensor.shape)
         tensor_shape.assert_has_rank(rank)
         union_of_shapes = union_of_shapes.merge_with(tensor_shape)
-    

@@ -15,10 +15,10 @@ import tree
 from dm_env.specs import Array, BoundedArray, DiscreteArray
 from rlds import rlds_types
 
-from clowder import gym_wrapper, specs
+from clowder import specs
 from clowder.actor import Actor
 from clowder.learner import Learner
-from clowder.variable import VariableClient, VariableSource
+from clowder.variable import VariableSource
 from clowder.wrappers.observation_action_reward import ObservationActionRewardWrapper
 
 
@@ -29,8 +29,7 @@ class MockActor(Actor):
         self._spec = spec
         self.num_updates = 0
 
-    def select_action(self,
-                      observation: specs.NestedArray) -> specs.NestedArray:
+    def select_action(self, observation: specs.NestedArray) -> specs.NestedArray:
         _validate_spec(self._spec.observations, observation)
         return _generate_from_spec(self._spec.actions)
 
@@ -54,15 +53,15 @@ class MockActor(Actor):
 class MockVariableSource(VariableSource):
     """Fake variable source."""
 
-    def __init__(self,
-                 variables: Optional[specs.NestedArray] = None,
-                 barrier: Optional[threading.Barrier] = None,
-                 use_default_key: bool = True):
+    def __init__(
+        self,
+        variables: Optional[specs.NestedArray] = None,
+        barrier: Optional[threading.Barrier] = None,
+        use_default_key: bool = True,
+    ):
         # Add dummy variables so we can expose them in get_variables.
         if use_default_key:
-            self._variables = {
-                'policy': [] if variables is None else variables
-            }
+            self._variables = {"policy": [] if variables is None else variables}
         else:
             self._variables = variables
         self._barrier = barrier
@@ -76,9 +75,7 @@ class MockVariableSource(VariableSource):
 class MockLearner(Learner, MockVariableSource):
     """Fake Learner."""
 
-    def __init__(self,
-                 variables: Optional[specs.NestedArray] = None,
-                 barrier: Optional[threading.Barrier] = None):
+    def __init__(self, variables: Optional[specs.NestedArray] = None, barrier: Optional[threading.Barrier] = None):
         super().__init__(variables=variables, barrier=barrier)
         self.step_counter = 0
 
@@ -97,16 +94,16 @@ class Environment(dm_env.Environment):
     ):
         # Assert that the discount spec is a BoundedArray with range [0, 1].
         def check_discount_spec(path, discount_spec):
-            if (not isinstance(discount_spec, BoundedArray)
-                    or not np.isclose(discount_spec.minimum, 0)
-                    or not np.isclose(discount_spec.maximum, 1)):
+            if (
+                not isinstance(discount_spec, BoundedArray)
+                or not np.isclose(discount_spec.minimum, 0)
+                or not np.isclose(discount_spec.maximum, 1)
+            ):
                 if path:
-                    path_str = ' ' + '/'.join(str(p) for p in path)
+                    path_str = " " + "/".join(str(p) for p in path)
                 else:
-                    path_str = ''
-                raise ValueError(
-                    'discount_spec {}isn\'t a BoundedArray in [0, 1].'.format(
-                        path_str))
+                    path_str = ""
+                raise ValueError("discount_spec {}isn't a BoundedArray in [0, 1].".format(path_str))
 
         tree.map_structure_with_path(check_discount_spec, spec.discounts)
 
@@ -143,13 +140,10 @@ class Environment(dm_env.Environment):
             self._step = 0
             # We can't use dm_env.termination directly because then the discount
             # wouldn't necessarily conform to the spec (if eg. we want float32).
-            return dm_env.TimeStep(dm_env.StepType.LAST, reward, discount,
-                                   observation)
+            return dm_env.TimeStep(dm_env.StepType.LAST, reward, discount, observation)
         else:
             self._step += 1
-            return dm_env.transition(reward=reward,
-                                     observation=observation,
-                                     discount=discount)
+            return dm_env.transition(reward=reward, observation=observation, discount=discount)
 
     def action_spec(self):
         return self._spec.actions
@@ -167,14 +161,16 @@ class Environment(dm_env.Environment):
 class _BaseDiscreteEnvironment(Environment):
     """Discrete action fake environment."""
 
-    def __init__(self,
-                 *,
-                 num_actions: int = 1,
-                 action_dtype=np.int32,
-                 observation_spec: specs.NestedSpec,
-                 discount_spec: Optional[specs.NestedSpec] = None,
-                 reward_spec: Optional[specs.NestedSpec] = None,
-                 **kwargs):
+    def __init__(
+        self,
+        *,
+        num_actions: int = 1,
+        action_dtype=np.int32,
+        observation_spec: specs.NestedSpec,
+        discount_spec: Optional[specs.NestedSpec] = None,
+        reward_spec: Optional[specs.NestedSpec] = None,
+        **kwargs,
+    ):
         """Initialize the environment."""
         if reward_spec is None:
             reward_spec = Array((), np.float32)
@@ -184,97 +180,103 @@ class _BaseDiscreteEnvironment(Environment):
 
         actions = DiscreteArray(num_actions, dtype=action_dtype)
 
-        super().__init__(spec=specs.EnvironmentSpec(
-            observations=observation_spec,
-            actions=actions,
-            rewards=reward_spec,
-            discounts=discount_spec),
-                         **kwargs)
+        super().__init__(
+            spec=specs.EnvironmentSpec(
+                observations=observation_spec, actions=actions, rewards=reward_spec, discounts=discount_spec
+            ),
+            **kwargs,
+        )
 
 
 class MockDiscreteEnvironment(_BaseDiscreteEnvironment):
     """Discrete state and action fake environment."""
 
-    def __init__(self,
-                 *,
-                 num_actions: int = 1,
-                 num_observations: int = 1,
-                 action_dtype=np.int32,
-                 obs_dtype=np.int32,
-                 obs_shape: Sequence[int] = (),
-                 discount_spec: Optional[specs.NestedSpec] = None,
-                 reward_spec: Optional[specs.NestedSpec] = None,
-                 **kwargs):
+    def __init__(
+        self,
+        *,
+        num_actions: int = 1,
+        num_observations: int = 1,
+        action_dtype=np.int32,
+        obs_dtype=np.int32,
+        obs_shape: Sequence[int] = (),
+        discount_spec: Optional[specs.NestedSpec] = None,
+        reward_spec: Optional[specs.NestedSpec] = None,
+        **kwargs,
+    ):
         """Initialize the environment."""
         observations_spec = BoundedArray(
-            shape=obs_shape,
-            dtype=obs_dtype,
-            minimum=obs_dtype(0),
-            maximum=obs_dtype(num_observations - 1))
+            shape=obs_shape, dtype=obs_dtype, minimum=obs_dtype(0), maximum=obs_dtype(num_observations - 1)
+        )
 
-        super().__init__(num_actions=num_actions,
-                         action_dtype=action_dtype,
-                         observation_spec=observations_spec,
-                         discount_spec=discount_spec,
-                         reward_spec=reward_spec,
-                         **kwargs)
+        super().__init__(
+            num_actions=num_actions,
+            action_dtype=action_dtype,
+            observation_spec=observations_spec,
+            discount_spec=discount_spec,
+            reward_spec=reward_spec,
+            **kwargs,
+        )
 
 
 class MockNestedDiscreteEnvironment(_BaseDiscreteEnvironment):
     """Discrete action fake environment with nested discrete state."""
 
-    def __init__(self,
-                 *,
-                 num_observations: Mapping[str, int],
-                 num_actions: int = 1,
-                 action_dtype=np.int32,
-                 obs_dtype=np.int32,
-                 obs_shape: Sequence[int] = (),
-                 discount_spec: Optional[specs.NestedSpec] = None,
-                 reward_spec: Optional[specs.NestedSpec] = None,
-                 **kwargs):
+    def __init__(
+        self,
+        *,
+        num_observations: Mapping[str, int],
+        num_actions: int = 1,
+        action_dtype=np.int32,
+        obs_dtype=np.int32,
+        obs_shape: Sequence[int] = (),
+        discount_spec: Optional[specs.NestedSpec] = None,
+        reward_spec: Optional[specs.NestedSpec] = None,
+        **kwargs,
+    ):
         """Initialize the environment."""
 
         observations_spec = {}
         for key in num_observations:
             observations_spec[key] = BoundedArray(
-                shape=obs_shape,
-                dtype=obs_dtype,
-                minimum=obs_dtype(0),
-                maximum=obs_dtype(num_observations[key] - 1))
+                shape=obs_shape, dtype=obs_dtype, minimum=obs_dtype(0), maximum=obs_dtype(num_observations[key] - 1)
+            )
 
-        super().__init__(num_actions=num_actions,
-                         action_dtype=action_dtype,
-                         observation_spec=observations_spec,
-                         discount_spec=discount_spec,
-                         reward_spec=reward_spec,
-                         **kwargs)
+        super().__init__(
+            num_actions=num_actions,
+            action_dtype=action_dtype,
+            observation_spec=observations_spec,
+            discount_spec=discount_spec,
+            reward_spec=reward_spec,
+            **kwargs,
+        )
 
 
 class MockContinuousEnvironment(Environment):
     """Continuous state and action fake environment."""
 
-    def __init__(self,
-                 *,
-                 action_dim: int = 1,
-                 observation_dim: int = 1,
-                 bounded: bool = False,
-                 dtype=np.float32,
-                 reward_dtype=np.float32,
-                 **kwargs):
+    def __init__(
+        self,
+        *,
+        action_dim: int = 1,
+        observation_dim: int = 1,
+        bounded: bool = False,
+        dtype=np.float32,
+        reward_dtype=np.float32,
+        **kwargs,
+    ):
         """Initialize the environment.
 
-    Args:
-      action_dim: number of action dimensions.
-      observation_dim: number of observation dimensions.
-      bounded: whether or not the actions are bounded in [-1, 1].
-      dtype: dtype of the action and observation spaces.
-      reward_dtype: dtype of the reward and discounts.
-      **kwargs: additional kwargs passed to the Environment base class.
-    """
+        Args:
+          action_dim: number of action dimensions.
+          observation_dim: number of observation dimensions.
+          bounded: whether or not the actions are bounded in [-1, 1].
+          dtype: dtype of the action and observation spaces.
+          reward_dtype: dtype of the reward and discounts.
+          **kwargs: additional kwargs passed to the Environment base class.
+        """
 
-        action_shape = () if action_dim == 0 else (action_dim, )
-        observation_shape = () if observation_dim == 0 else (observation_dim, )
+        action_shape = () if action_dim == 0 else (action_dim,)
+        observation_shape = () if observation_dim == 0 else (observation_dim,)
 
         observations = Array(observation_shape, dtype)
         rewards = Array((), reward_dtype)
@@ -285,11 +287,10 @@ class MockContinuousEnvironment(Environment):
         else:
             actions = Array(action_shape, dtype)
 
-        super().__init__(spec=specs.EnvironmentSpec(observations=observations,
-                                                    actions=actions,
-                                                    rewards=rewards,
-                                                    discounts=discounts),
-                         **kwargs)
+        super().__init__(
+            spec=specs.EnvironmentSpec(observations=observations, actions=actions, rewards=rewards, discounts=discounts),
+            **kwargs,
+        )
 
 
 def _validate_spec(spec: specs.NestedSpec, value: specs.NestedArray):
@@ -301,44 +302,42 @@ def _validate_spec(spec: specs.NestedSpec, value: specs.NestedArray):
 def _normalize_array(array: Array) -> Array:
     """Converts bounded arrays with (-inf,+inf) bounds to unbounded arrays.
 
-  The returned array should be mostly equivalent to the input, except that
-  `generate_value()` returns -infs on arrays bounded to (-inf,+inf) and zeros
-  on unbounded arrays.
+    The returned array should be mostly equivalent to the input, except that
+    `generate_value()` returns -infs on arrays bounded to (-inf,+inf) and zeros
+    on unbounded arrays.
 
-  Args:
-    array: the array to be normalized.
+    Args:
+      array: the array to be normalized.
 
-  Returns:
-    normalized array.
-  """
+    Returns:
+      normalized array.
+    """
     if isinstance(array, DiscreteArray):
         return array
     if not isinstance(array, BoundedArray):
         return array
-    if not (array.minimum == float('-inf')).all():
+    if not (array.minimum == float("-inf")).all():
         return array
-    if not (array.maximum == float('+inf')).all():
+    if not (array.maximum == float("+inf")).all():
         return array
     return Array(array.shape, array.dtype, array.name)
 
 
 def _generate_from_spec(spec: specs.NestedSpec) -> specs.NestedArray:
     """Generate a value from a potentially nested spec."""
-    return tree.map_structure(lambda s: _normalize_array(s).generate_value(),
-                              spec)
+    return tree.map_structure(lambda s: _normalize_array(s).generate_value(), spec)
 
 
-def transition_dataset_from_spec(
-        spec: specs.EnvironmentSpec) -> tf.data.Dataset:
+def transition_dataset_from_spec(spec: specs.EnvironmentSpec) -> tf.data.Dataset:
     """Constructs fake dataset of Reverb N-step transition samples.
 
-  Args:
-    spec: Constructed fake transitions match the provided specification.
+    Args:
+      spec: Constructed fake transitions match the provided specification.
 
-  Returns:
-    tf.data.Dataset that produces the same fake N-step transition ReverbSample
-    object indefinitely.
-  """
+    Returns:
+      tf.data.Dataset that produces the same fake N-step transition ReverbSample
+      object indefinitely.
+    """
 
     observation = _generate_from_spec(spec.observations)
     action = _generate_from_spec(spec.actions)
@@ -346,9 +345,7 @@ def transition_dataset_from_spec(
     discount = _generate_from_spec(spec.discounts)
     data = specs.Transition(observation, action, reward, discount, observation)
 
-    info = tree.map_structure(
-        lambda tf_dtype: tf.ones([], tf_dtype.as_numpy_dtype),
-        reverb.SampleInfo.tf_dtypes())
+    info = tree.map_structure(lambda tf_dtype: tf.ones([], tf_dtype.as_numpy_dtype), reverb.SampleInfo.tf_dtypes())
     sample = reverb.ReplaySample(info=info, data=data)
 
     return tf.data.Dataset.from_tensors(sample).repeat()
@@ -357,29 +354,26 @@ def transition_dataset_from_spec(
 def transition_dataset(environment: dm_env.Environment) -> tf.data.Dataset:
     """Constructs fake dataset of Reverb N-step transition samples.
 
-  Args:
-    environment: Constructed fake transitions will match the specification of
-      this environment.
+    Args:
+      environment: Constructed fake transitions will match the specification of
+        this environment.
 
-  Returns:
-    tf.data.Dataset that produces the same fake N-step transition ReverbSample
-    object indefinitely.
-  """
-    return transition_dataset_from_spec(
-        specs.make_environment_spec(environment))
+    Returns:
+      tf.data.Dataset that produces the same fake N-step transition ReverbSample
+      object indefinitely.
+    """
+    return transition_dataset_from_spec(specs.make_environment_spec(environment))
 
 
-def transition_iterator_from_spec(
-    spec: specs.EnvironmentSpec
-) -> Callable[[int], Iterator[specs.Transition]]:
+def transition_iterator_from_spec(spec: specs.EnvironmentSpec) -> Callable[[int], Iterator[specs.Transition]]:
     """Constructs fake iterator of transitions.
 
-  Args:
-    spec: Constructed fake transitions match the provided specification..
+    Args:
+      spec: Constructed fake transitions match the provided specification..
 
-  Returns:
-    A callable that given a batch_size returns an iterator of transitions.
-  """
+    Returns:
+      A callable that given a batch_size returns an iterator of transitions.
+    """
 
     observation = _generate_from_spec(spec.observations)
     action = _generate_from_spec(spec.actions)
@@ -392,39 +386,33 @@ def transition_iterator_from_spec(
     return lambda batch_size: dataset.batch(batch_size).as_numpy_iterator()
 
 
-def transition_iterator(
-    environment: dm_env.Environment
-) -> Callable[[int], Iterator[specs.Transition]]:
+def transition_iterator(environment: dm_env.Environment) -> Callable[[int], Iterator[specs.Transition]]:
     """Constructs fake iterator of transitions.
 
-  Args:
-    environment: Constructed fake transitions will match the specification of
-      this environment.
+    Args:
+      environment: Constructed fake transitions will match the specification of
+        this environment.
 
-  Returns:
-    A callable that given a batch_size returns an iterator of transitions.
-  """
-    return transition_iterator_from_spec(
-        specs.make_environment_spec(environment))
+    Returns:
+      A callable that given a batch_size returns an iterator of transitions.
+    """
+    return transition_iterator_from_spec(specs.make_environment_spec(environment))
 
 
-def fake_atari_wrapped(episode_length: int = 10,
-                       oar_wrapper: bool = False) -> dm_env.Environment:
+def fake_atari_wrapped(episode_length: int = 10, oar_wrapper: bool = False) -> dm_env.Environment:
     """Builds fake version of the environment to be used by tests.
 
-  Args:
-    episode_length: The length of episodes produced by this environment.
-    oar_wrapper: Should ObservationActionRewardWrapper be applied.
+    Args:
+      episode_length: The length of episodes produced by this environment.
+      oar_wrapper: Should ObservationActionRewardWrapper be applied.
 
-  Returns:
-    Fake version of the environment equivalent to the one returned by
-    env_loader.load_atari_wrapped
-  """
-    env = DiscreteEnvironment(num_actions=18,
-                              num_observations=2,
-                              obs_shape=(84, 84, 4),
-                              obs_dtype=np.float32,
-                              episode_length=episode_length)
+    Returns:
+      Fake version of the environment equivalent to the one returned by
+      env_loader.load_atari_wrapped
+    """
+    env = DiscreteEnvironment(
+        num_actions=18, num_observations=2, obs_shape=(84, 84, 4), obs_dtype=np.float32, episode_length=episode_length
+    )
 
     if oar_wrapper:
         env = ObservationActionRewardWrapper(env)
@@ -439,29 +427,24 @@ def rlds_dataset_from_env_spec(
 ) -> tf.data.Dataset:
     """Constructs a fake RLDS dataset with the given spec.
 
-  Args:
-    spec: specification to use for generation of fake steps.
-    episode_count: number of episodes in the dataset.
-    episode_length: length of the episode in the dataset.
+    Args:
+      spec: specification to use for generation of fake steps.
+      episode_count: number of episodes in the dataset.
+      episode_length: length of the episode in the dataset.
 
-  Returns:
-    a fake RLDS dataset.
-  """
+    Returns:
+      a fake RLDS dataset.
+    """
 
     fake_steps = {
-        rlds_types.OBSERVATION:
-        ([_generate_from_spec(spec.observations)] * episode_length),
-        rlds_types.ACTION:
-        ([_generate_from_spec(spec.actions)] * episode_length),
-        rlds_types.REWARD:
-        ([_generate_from_spec(spec.rewards)] * episode_length),
-        rlds_types.DISCOUNT:
-        ([_generate_from_spec(spec.discounts)] * episode_length),
+        rlds_types.OBSERVATION: ([_generate_from_spec(spec.observations)] * episode_length),
+        rlds_types.ACTION: ([_generate_from_spec(spec.actions)] * episode_length),
+        rlds_types.REWARD: ([_generate_from_spec(spec.rewards)] * episode_length),
+        rlds_types.DISCOUNT: ([_generate_from_spec(spec.discounts)] * episode_length),
         rlds_types.IS_TERMINAL: [False] * (episode_length - 1) + [True],
         rlds_types.IS_FIRST: [True] + [False] * (episode_length - 1),
         rlds_types.IS_LAST: [False] * (episode_length - 1) + [True],
     }
     steps_dataset = tf.data.Dataset.from_tensor_slices(fake_steps)
 
-    return tf.data.Dataset.from_tensor_slices(
-        {rlds_types.STEPS: [steps_dataset] * episode_count})
+    return tf.data.Dataset.from_tensor_slices({rlds_types.STEPS: [steps_dataset] * episode_count})

@@ -1,4 +1,5 @@
 from typing import Callable, Optional, Sequence
+
 from clowder.loggers import base
 
 
